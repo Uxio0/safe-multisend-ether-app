@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Loader, Title, TextField } from '@gnosis.pm/safe-react-components';
+import { Button, Card, Loader, Table, TableHeader, TableRow, Title, Text, TextField } from '@gnosis.pm/safe-react-components';
 import { useSafeAppsSDK } from '@gnosis.pm/safe-apps-react-sdk';
+import web3Utils from 'web3-utils';
 
 const Container = styled.form`
   margin-bottom: 2rem;
@@ -13,6 +14,17 @@ const Container = styled.form`
   grid-column-gap: 1rem;
   grid-row-gap: 1rem;
 `;
+
+const headers: TableHeader[] = [
+  {
+    id: '1',
+    label: 'Recipient address'
+  },
+  {
+    id: '2',
+    label: 'Ξ (Ether)',
+  }
+]
 
 type SimpleTransaction = {
   address: string;
@@ -29,7 +41,12 @@ const App: React.FC = () => {
     const [currentValue, setCurrentValue] = useState('1');
 
     const addAddress = async (event: any) => {
-      setTransactions(old => [...old, {'address': currentAddress, 'value': currentValue}])
+      const found = transactions.find(element => currentAddress == element.address)
+      if (found !== undefined) {
+        found.value = (parseFloat(found.value) + parseFloat(currentValue)).toString();
+      } else {
+        setTransactions(old => [...old, {'address': currentAddress, 'value': currentValue}])
+      }
       setCurrentAddress('');
     }
 
@@ -49,6 +66,11 @@ const App: React.FC = () => {
       }
     }
 
+    const handleClickRow = (index: any) => {
+      const temp = [...transactions];
+      temp.splice(index, 1);
+      setTransactions(temp);
+    }
 
     const submitTx = useCallback(async () => {
       setSubmitting(true);
@@ -56,7 +78,7 @@ const App: React.FC = () => {
         const txs = transactions.map((transaction: SimpleTransaction) => {
           return {
             to: transaction.address,
-            value: transaction.value,
+            value: web3Utils.toWei(transaction.value),
             data: '0x',
           }
         });
@@ -71,13 +93,20 @@ const App: React.FC = () => {
       setSubmitting(false);
     }, [transactions, safe, sdk]);
 
-    const listAddresses = transactions.map((transaction) =>
-      <li key={transaction.address}>{transaction.address} - {transaction.value}</li>
-    );
+    const rows: TableRow[] = transactions.map((transaction, index) => ({
+      id: index.toString(),
+      cells: [{ content: transaction.address }, {content: transaction.value}]
+    }))
 
     return (
       <Container>
-        <ul>{listAddresses}</ul>
+        {rows.length > 0 ? (
+            <Table headers={headers} rows={rows} onRowClick={handleClickRow} />
+          ) : (
+            <Card>
+              <Text size="xl">No recipients yet</Text>
+            </Card>
+          )}
         <TextField value={currentAddress} label="Enter Address" onChange={handleAddressChanged}/>
         <TextField value={currentValue} label="Enter Value (Ether)" onChange={handleValueChanged}/>
         <Button size="lg" color="primary" onClick={addAddress}>Add Address</Button>
@@ -106,7 +135,7 @@ const App: React.FC = () => {
 
   return (
     <Container>
-      <Title size="md">{safe.safeAddress}</Title>
+      <Title size="md">Multisend ether</Title>
       <AddressList/>
     </Container>
   );
